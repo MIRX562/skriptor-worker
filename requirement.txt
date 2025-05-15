@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+redis
+bullmq-py   # or rq, if you prefer
+minio
+psycopg2-binary
+asyncpg
+sqlalchemy  # optional, or your preferred ORM
+whisperx  # assuming you have a python package or pip-installable whisperx or use subprocess
+python-dotenv
