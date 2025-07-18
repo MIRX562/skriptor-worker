@@ -1,0 +1,11 @@
+"filename", "language", "Python", "pip requirements", "comment", "blank", "total"
+"c:\Programming\AI-Transcriptor\app\whisperx-worker\src\audio_utils.py", "Python", 10, 0, 1, 1, 12
+"c:\Programming\AI-Transcriptor\app\whisperx-worker\src\config.py", "Python", 13, 0, 6, 6, 25
+"c:\Programming\AI-Transcriptor\app\whisperx-worker\src\database.py", "Python", 63, 0, 4, 6, 73
+"c:\Programming\AI-Transcriptor\app\whisperx-worker\src\job_processor.py", "Python", 131, 0, 22, 49, 202
+"c:\Programming\AI-Transcriptor\app\whisperx-worker\src\main.py", "Python", 27, 0, 6, 8, 41
+"c:\Programming\AI-Transcriptor\app\whisperx-worker\src\progress_tracker.py", "Python", 37, 0, 9, 11, 57
+"c:\Programming\AI-Transcriptor\app\whisperx-worker\src\requirements.txt", "pip requirements", 0, 24, 21, 10, 55
+"c:\Programming\AI-Transcriptor\app\whisperx-worker\src\storage.py", "Python", 24, 0, 3, 4, 31
+"c:\Programming\AI-Transcriptor\app\whisperx-worker\src\transcription_service.py", "Python", 90, 0, 17, 23, 130
+"Total", "-", 395, 24, 89, 118, 626
