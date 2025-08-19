@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
 class Config:
+    # Transcription Provider (groq or local)
+    TRANSCRIPTION_PROVIDER = os.getenv("TRANSCRIPTION_PROVIDER", "groq")
     # Redis Configuration
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
     

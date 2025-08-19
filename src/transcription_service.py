@@ -4,19 +4,46 @@ from config import Config
 
 class TranscriptionService:
     def __init__(self):
-        self.groq_client = Groq(api_key=Config.GROQ_API_KEY)
-    
-    def transcribe_with_groq(self, audio_file_path, language=None):
-        """Transcribe audio using Groq Whisper API"""
+        self.provider = Config.TRANSCRIPTION_PROVIDER.lower()
+        if self.provider == "groq":
+            self.groq_client = Groq(api_key=Config.GROQ_API_KEY)
+        elif self.provider == "local":
+            self.local_model_cache = {}
+
+    def transcribe(self, audio_file_path, language=None, model_size="large-v3"):
+        """Transcribe audio using selected provider and model size"""
+        if self.provider == "groq":
+            return self._transcribe_with_groq(audio_file_path, language, model_size)
+        elif self.provider == "local":
+            return self._transcribe_with_local(audio_file_path, language, model_size)
+        else:
+            raise ValueError(f"Unknown transcription provider: {self.provider}")
+
+    def _transcribe_with_groq(self, audio_file_path, language=None, model_size="large-v3"):
+        model_map = {
+            "large-v3": "whisper-large-v3-turbo",
+            "medium": "whisper-medium",
+            "small": "whisper-small",
+            "tiny": "whisper-tiny"
+        }
+        model = model_map.get(model_size, "whisper-large-v3-turbo")
         with open(audio_file_path, "rb") as f:
             transcription = self.groq_client.audio.transcriptions.create(
                 file=(audio_file_path, f.read()),
-                model="whisper-large-v3-turbo",
+                model=model,
                 response_format="verbose_json",
                 timestamp_granularities=["word", "segment"],
                 language=language or "id"
             )
             return transcription.model_dump()
+
+    def _transcribe_with_local(self, audio_file_path, language=None, model_size="large-v3"):
+        # Cache models by size
+        if model_size not in self.local_model_cache:
+            self.local_model_cache[model_size] = whisperx.load_model(model_size, device="cpu")
+        model = self.local_model_cache[model_size]
+        result = model.transcribe(audio_file_path, language=language or "id", batch_size=16, return_segments=True)
+        return result
     
     def perform_diarization(self, audio_file_path, transcription_result):
         """Perform speaker diarization using WhisperX"""

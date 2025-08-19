@@ -17,44 +17,44 @@ class JobProcessor:
         transcription_id = job_data.get("transcriptionId") or job_data.get("id")
         filename = job_data["filename"]
         language = job_data.get("language")
-        model_size = job_data.get("model", "tiny")
+        model_size = job_data.get("model", "large-v3")
         is_speaker_diarized = job_data.get("isSpeakerDiarized", False)
         number_of_speakers = job_data.get("numberOfSpeaker")
-        
+
         print(f"📥 Job received: {filename}")
-        
+
         try:
             # Start job tracking
             job_start_time = self.progress.track_job_start(transcription_id)
             self.progress.update_progress(transcription_id, "started", 0, f"Starting transcription of {filename}")
-            
+
             # Download audio file
             local_audio_path = self._download_audio(transcription_id, filename)
-            
+
             # Get audio info
             file_size_mb = self.storage.get_file_size_mb(local_audio_path)
             audio_duration = get_audio_duration(local_audio_path)
-            
+
             self.progress.update_progress(transcription_id, "analyzing", 15, 
                                         f"Analyzing audio file ({audio_duration:.1f} seconds)")
-            
+
             # Transcribe audio
-            result = self._transcribe_audio(transcription_id, local_audio_path, language)
+            result = self._transcribe_audio(transcription_id, local_audio_path, language, model_size)
             detected_language = result.get("language", language or "unknown")
-            
+
             # Perform diarization if needed
             if is_speaker_diarized:
                 result, diarize_error = self._perform_diarization(transcription_id, local_audio_path, result)
-            
+
             # Generate transcription summary
             summary = self._generate_summary(transcription_id, result, detected_language)
-            
+
             # Save results to database (including summary)
             self._save_results(transcription_id, result, detected_language, audio_duration, summary)
-            
+
             # Complete job
             self._complete_job(transcription_id, result, audio_duration, detected_language, job_start_time)
-            
+
             # Cleanup
             self.storage.cleanup_temp_file(local_audio_path)
             
@@ -79,20 +79,20 @@ class JobProcessor:
         print(f"🔊 Audio downloaded to {local_audio_path}")
         return local_audio_path
     
-    def _transcribe_audio(self, transcription_id, local_audio_path, language):
-        """Transcribe audio using Groq"""
-        self.progress.update_progress(transcription_id, "loading_model", 20, "Preparing Groq Whisper-Large-V3-Turbo")
-        self.progress.update_progress(transcription_id, "transcribing", 25, f"Sending audio to Groq for transcription")
-        
+    def _transcribe_audio(self, transcription_id, local_audio_path, language, model_size):
+        """Transcribe audio using selected provider and model size"""
+        self.progress.update_progress(transcription_id, "loading_model", 20, f"Preparing model: {model_size}")
+        self.progress.update_progress(transcription_id, "transcribing", 25, f"Transcribing audio with model: {model_size}")
+
         transcribe_start = time.time()
-        result = self.transcription.transcribe_with_groq(local_audio_path, language)
+        result = self.transcription.transcribe(local_audio_path, language, model_size)
         transcribe_time = time.time() - transcribe_start
-        
+
         self.progress.track_timing(transcription_id, "transcription_complete")
         detected_language = result.get("language", language or "unknown")
         self.progress.update_progress(transcription_id, "post_processing", 65, 
                                     f"Transcription complete in {transcribe_time:.1f}s ({detected_language})")
-        
+
         return result
     
     def _perform_diarization(self, transcription_id, local_audio_path, result):
