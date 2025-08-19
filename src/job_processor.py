@@ -1,6 +1,6 @@
 import time
 import traceback
-from database import DatabaseManager
+import json
 from storage import StorageManager
 from progress_tracker import ProgressTracker
 from transcription_service import TranscriptionService
@@ -8,7 +8,6 @@ from audio_utils import get_audio_duration
 
 class JobProcessor:
     def __init__(self):
-        self.db = DatabaseManager()
         self.storage = StorageManager()
         self.progress = ProgressTracker()
         self.transcription = TranscriptionService()
@@ -117,24 +116,22 @@ class JobProcessor:
         return result, None
     
     def _save_results(self, transcription_id, result, detected_language, audio_duration, summary=None):
-        """Save transcription results to database"""
+        """Save transcription results to Redis for backend consumption"""
         segments = result["segments"]
-        self.progress.update_progress(transcription_id, "saving", 95, f"Saving transcription and {len(segments)} segments to database")
-        
-        db_start = time.time()
-        
-        # Save completed transcription with summary
-        self.db.save_transcription_complete(transcription_id, detected_language, audio_duration, summary)
-        
-        # Insert segments with progress tracking
-        def segment_progress(idx, total):
-            self.progress.update_progress(transcription_id, "saving", 95 + (idx / total * 4), 
-                                        f"Saving segment {idx+1}/{total}")
-        
-        self.db.insert_segments(transcription_id, segments, segment_progress)
-        
-        db_time = time.time() - db_start
-        print(f"✍️ {len(segments)} segments transcribed and saved with summary")
+        self.progress.update_progress(transcription_id, "saving", 95, f"Saving transcription and {len(segments)} segments to Redis")
+
+        # Compose result data
+        result_data = {
+            "id": transcription_id,
+            "language": detected_language,
+            "duration": audio_duration,
+            "summary": summary,
+            "segments": segments
+        }
+        # Store in Redis (keyed by transcription id)
+        self.progress.redis_client.set(f"transcription:result:{transcription_id}", json.dumps(result_data))
+        self.progress.redis_client.expire(f"transcription:result:{transcription_id}", 86400 * 7)  # 7 days
+        print(f"✍️ {len(segments)} segments transcribed and saved to Redis with summary")
     
     def _generate_summary(self, transcription_id, result, detected_language):
         """Generate transcription summary using Groq API"""
@@ -191,12 +188,15 @@ class JobProcessor:
         error_message = str(error)[:200]  # Limit error message length
         print(f"❌ Error occurred: {error}")
         traceback.print_exc()
-        
+
         self.progress.update_progress(transcription_id, "error", None, f"Error: {error_message}")
         self.progress.handle_error(transcription_id, error_message)
-        
-        # Try to update the database record
-        try:
-            self.db.update_transcription_status(transcription_id, 'error', error=error_message)
-        except Exception:
-            pass  # If this fails too, just continue
+
+        # Store error in Redis for backend to consume
+        error_data = {
+            "id": transcription_id,
+            "status": "error",
+            "error": error_message
+        }
+        self.progress.redis_client.set(f"transcription:result:{transcription_id}", json.dumps(error_data))
+        self.progress.redis_client.expire(f"transcription:result:{transcription_id}", 86400 * 7)
